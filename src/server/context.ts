@@ -145,7 +145,7 @@ export class ServerContext {
 			if (!url.startsWith(baseUrl)) {
 				throw new TypeError('Page is not a child of the basepath.')
 			}
-			const path = basename(url)
+			const path = '/' + basename(url)
 			const baseRoute = basename(url, extname(url))
 			const name = baseRoute.replace('/', '-')
 			const isMiddleware =
