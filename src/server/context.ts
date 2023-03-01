@@ -145,11 +145,11 @@ export class ServerContext {
 			if (!url.startsWith(baseUrl)) {
 				throw new TypeError('Page is not a child of the basepath.')
 			}
-			const path = '/' + basename(url) 
+			const path = '/' + basename(url)
 			const baseRoute = url
-                  		.substring(url.indexOf('routes') + 'routes'.length)
-                   		.replace('/', '')
-                  		.replace(extname(basename(url)), '')
+				.substring(url.indexOf('routes') + 'routes'.length)
+				.replace('/', '')
+				.replace(extname(basename(url)), '')
 			const name = baseRoute.replace('/', '-')
 			const isMiddleware =
 				path.endsWith('/_middleware.tsx') ||
@@ -314,7 +314,6 @@ export class ServerContext {
 				throw err
 			}
 		}
-
 		return new ServerContext(
 			routes,
 			islands,
@@ -337,7 +336,7 @@ export class ServerContext {
 	handler(): RequestHandler {
 		const inner = rutt.router<RouterState>(...this.#handlers())
 		const withMiddlewares = this.#composeMiddlewares(this.#middlewares)
-		return function handler(req: Request, connInfo: ConnInfo) {
+		return async function handler(req: Request, connInfo: ConnInfo) {
 			// Redirect requests that end with a trailing slash
 			// to their non-trailing slash counterpart.
 			// Ex: /about/ -> /about
@@ -346,7 +345,24 @@ export class ServerContext {
 				url.pathname = url.pathname.slice(0, -1)
 				return Response.redirect(url.href, Status.TemporaryRedirect)
 			}
-			return withMiddlewares(req, connInfo, inner)
+
+			// HEAD requests should be handled as GET requests
+			// but without the body.
+			const originalMethod = req.method
+			// Internally, HEAD is handled in the same way as GET.
+			if (req.method === 'HEAD') {
+				req = new Request(req.url, { method: 'GET', headers: req.headers })
+			}
+			const res = await withMiddlewares(req, connInfo, inner)
+			if (originalMethod === 'HEAD') {
+				res.body?.cancel()
+				return new Response(null, {
+					headers: res.headers,
+					status: res.status,
+					statusText: res.statusText,
+				})
+			}
+			return res
 		}
 	}
 
